@@ -35,6 +35,7 @@ def pipeline(frame, frame_num, lines, cnt, results, debug, model):
 
     # detect
     time_detect = time.time()
+
     detections = DetectionRCNN.start_detect(frame, frame_num, model)
     # detections = detections[np.where(detections[:, 7] == 1)]
 
