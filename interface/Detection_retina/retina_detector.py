@@ -126,14 +126,6 @@ class RetinaNet:
 
 
 if __name__ == '__main__':
-    #
-    # imgs = os.listdir("/data/00_share/image-3.18/")
-    # for im in imgs:
-    #     if im[-3:] == 'jpg':
-    #         print(im)
-    #         detect(cv2.imread("/data/00_share/image-3.18/"+im))
-
-    # f = '/data/00_share/南通北200米监控/南通北200监控-16-17.mp4'
     f = "/data/00_share/04  绸都大道、舜湖西路（4天）/4.11/绸都大道、舜湖西路南侧_绸都大道、舜湖西路南侧_20180411074813.mp4"
 
     retinanet = RetinaNet()
