@@ -6,7 +6,7 @@ import numpy as np
 
 
 # assign detections to trackers by linear assignment and Hungarian algorithm
-def assign_detections_to_trackers(trackers, detections, iou_thrd = 0.3):
+def assign_detections_to_trackers(trackers, detections, iou_thrd=0.3):
     IOU_mat = np.zeros((len(trackers), len(detections)), dtype=np.float32)
     for t, trk in enumerate(trackers):
         for d, det in enumerate(detections):
@@ -35,25 +35,26 @@ def assign_detections_to_trackers(trackers, detections, iou_thrd = 0.3):
         matches = np.concatenate(matches, axis=0)
     return matches, np.array(unmatched_detections), np.array(unmatched_trackers)
 
+
 # class for Kalman Filter-based tracker
 class Tracker():
     def __init__(self):
 
         # initialize
-        self.id = 0                          # tracker's id
-        self.cur_box = []                    # current bounding box
-        self.pre_box = []                    # previous bounding box
-        self.cls = -1                        # classification label
+        self.id = 0  # tracker's id
+        self.cur_box = []  # current bounding box
+        self.pre_box = []  # previous bounding box
+        self.cls = -1  # classification label
 
-        self.is_crossed_first_line = False   # whether cross the first line
+        self.is_crossed_first_line = False  # whether cross the first line
         self.is_crossed_second_line = False  # whether cross the second line
-        self.crossed_line = [-1, -1]         # line index for two crossed lines
-        self.is_counted = False              # whether be counted
+        self.crossed_line = [-1, -1]  # line index for two crossed lines
+        self.is_counted = False  # whether be counted
 
-        self.hits = 0                        # number of detection matches
-        self.no_losses = 0                   # number of unmatched tracks
-        self.x_state = []                    # state
-        self.dt = 1.                         # time interval
+        self.hits = 0  # number of detection matches
+        self.no_losses = 0  # number of unmatched tracks
+        self.x_state = []  # state
+        self.dt = 1.  # time interval
 
         # process matrix (assuming constant velocity model)
         self.F = np.array([[1, self.dt, 0, 0, 0, 0, 0, 0],
@@ -123,4 +124,3 @@ class Tracker():
         x = dot(self.F, x)
         self.P = dot(self.F, self.P).dot(self.F.T) + self.Q
         self.x_state = x.astype(int)
-

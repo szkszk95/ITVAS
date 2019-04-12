@@ -1,5 +1,6 @@
 from Common import Geometry
 
+
 # calculate the number of cars crossing the lines
 def counting(trk, start, end, cnt, index, results):
     flag = 0
@@ -19,6 +20,7 @@ def counting(trk, start, end, cnt, index, results):
         elif index != trk.crossed_line[0]:
             trk.crossed_line[1] = index
             trk.is_crossed_second_line = True
+            print("-->", cls-1, trk.crossed_line[0], trk.crossed_line[1])
             results[cls - 1][trk.crossed_line[0]][trk.crossed_line[1]] += 1
             trk.is_counted = True
     return trk, cnt, results, flag

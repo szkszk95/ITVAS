@@ -4,14 +4,10 @@ import os
 import time
 import sys
 
-
-
 from Basic_algorithm import DetectionRCNN
 from Basic_algorithm import MatchKalHun
 from Common import Geometry, Count
 import interface
-
-
 
 from collections import deque
 from PyQt5.QtCore import *
@@ -19,14 +15,25 @@ from PyQt5.QtGui import *
 
 # os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
-max_age = 10                               # number of consecutive unmatched detection before a track is deleted
-min_hits = 2                               # number of consecutive matches needed to establish a track
-tracker_list = []                          # list for trackers
-track_id_list = deque(range(0, 999999))    # list for track ID
+max_age = 10  # number of consecutive unmatched detection before a track is deleted
+min_hits = 2  # number of consecutive matches needed to establish a track
+tracker_list = []  # list for trackers
+track_id_list = deque(range(0, 999999))  # list for track ID
 
 
 # pipeline of detecting, tracking, and counting
-def pipeline(frame, frame_num, lines, cnt, results, debug, model):
+def pipeline(frame, frame_num, lines, cnt, results, if_show, model):
+    """
+
+    :param frame:
+    :param frame_num:
+    :param lines:
+    :param cnt:
+    :param results:
+    :param if_show:
+    :param model:
+    :return:
+    """
     global tracker_list
     global max_age
     global min_hits
@@ -35,9 +42,7 @@ def pipeline(frame, frame_num, lines, cnt, results, debug, model):
 
     # detect
     time_detect = time.time()
-
     detections = DetectionRCNN.start_detect(frame, frame_num, model)
-    # detections = detections[np.where(detections[:, 7] == 1)]
 
     # track
     time_track = time.time()
@@ -108,65 +113,70 @@ def pipeline(frame, frame_num, lines, cnt, results, debug, model):
     flag = np.zeros(len(lines))
     for trk in tracker_list:
         if (trk.hits >= min_hits) and (trk.no_losses <= max_age):
-            if debug:
-                x_cv2 = trk.cur_box
-                id = trk.id
-                cls = trk.cls
-                frame = Geometry.draw_box_label(frame, x_cv2, id, cls)
+            frame = Geometry.draw_box_label(frame, trk.cur_box, trk.id, trk.cls)
             trk.get_center()
             for j in range(len(lines)):
                 trk, cnt, results, flag_temp = Count.counting(trk, lines[j][0:2], lines[j][2:4], cnt, j, results)
                 flag[j] += flag_temp
             good_tracker_list.append(trk)
-    if debug:
+    if if_show:
         frame = Geometry.draw_lines(frame, lines, flag)
 
     tracker_list = [x for x in tracker_list if x.no_losses <= max_age]
 
-    print("Detection\t{}\ttraciking\t{}".format(
-        time_track-time_detect,
-        time.time()-time_track
+    print("Detection\t{:2f}\ttraciking\t{:2f}".format(
+        time_track - time_detect,
+        time.time() - time_track
     ))
 
     return frame, cnt, results
 
 
-def proc(label, video, lines, model_path, gap=1, debug=False):
+def proc(label, video, lines, model_path, gap=1, if_show=False):
+    """
+    Process every Frame
+    :param label: THE QT SHOW Label
+    :param video: Video Path
+    :param lines: THE LINES
+    :param model_path: Path to the model
+    :param gap: Process one each <gap> frames
+    :param if_show: if SHOW result in the app
+    :return:
+    """
     cap = cv2.VideoCapture(video)
     frame_num = -1
-    frame_gap = gap
-    debug = debug
-    results = np.zeros((6, len(lines), len(lines))).astype(np.uint16)       # count results
-    cnt = np.zeros(len(lines)).astype(np.uint16)                            # number of vehicles crossing each line
-    #retinanet = RetinaNet()
-    #retinanet = FasterRCNN()
+    results = np.zeros((6, len(lines), len(lines))).astype(np.uint16)  # count results
+    cnt = np.zeros(len(lines)).astype(np.uint16)  # number of vehicles crossing each line
 
-
-
-    net=interface.create('retinaNet',model_path=model_path)
-    #net = interface.create('fasterRCNN', model_path=model_path)
-
-
+    if 'retina' in model_path:
+        net = interface.create('retinaNet', model_path=model_path)
+    elif 'yolo' in model_path:
+        print("yolo not ready yet!")
+        return
+    elif 'rcnn' in model_path:
+        net = interface.create('fasterRCNN', model_path=model_path)
+    else:
+        print("not this model!")
+        return
 
     while True:
         ret, frame = cap.read()
         frame_num += 1
 
         # interval frame processing
-        if frame_num % frame_gap != 0:
+        if frame_num % gap != 0:
             continue
         print(frame_num)
 
         # begin to detect, track and count
         if ret:
-            frame, cnt, results = pipeline(frame, frame_num, lines, cnt, results, debug, net)
+            print("--" * 40)
 
-            # show_frame = frame
-            print("--"*40)
-            # print('results', results)
-            if debug:
+            # Detection. Tracking. Counting Pipeline
+            frame, cnt, results = pipeline(frame, frame_num, lines, cnt, results, if_show, net)
+
+            if if_show:
                 height, width = frame.shape[:2]
-
                 if frame.ndim == 3:
                     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 else:
@@ -176,16 +186,9 @@ def proc(label, video, lines, model_path, gap=1, debug=False):
 
                 label.setPixmap(QPixmap.fromImage(image))
                 QCoreApplication.processEvents()
-                # frame = cv2.resize(frame,(900,600))
-                # cv2.waitKey(0)
-                # print(np.shape(frame))
-                # cv2.imshow("video", frame)
-                # cv2.waitKey(0)
-                # if cv2.waitKey(1) & 0xFF == ord('q'):
-                #     break
         else:
             break
+
     cap.release()
     cv2.destroyAllWindows()
     return results
-

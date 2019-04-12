@@ -14,7 +14,6 @@ from torchvision import datasets, models, transforms
 
 import interface.Detection_retina.model as model
 
-
 assert torch.__version__.split('.')[1] == '4'
 
 print('CUDA available: {}'.format(torch.cuda.is_available()))
@@ -45,10 +44,9 @@ class UnNormalizer(object):
 
 class RetinaNet:
     def __init__(self,
-                 model_path="models/vehicle_retinanet_94.pt",
+                 model_path,
                  class_path="models/clsVehicle.csv",
                  use_gpu=True):
-
 
         self.retinanet = torch.load(model_path)
         self.classes = self.load_classes(class_path)
@@ -57,8 +55,6 @@ class RetinaNet:
         self.retinanet.eval()
 
     def resizer(self, image, min_side=608, max_side=1024):
-        import time
-        t1 = time.time()
         rows, cols, cns = image.shape
 
         smallest_side = min(rows, cols)
@@ -83,12 +79,11 @@ class RetinaNet:
         new_image = np.zeros((rows + pad_w, cols + pad_h, cns)).astype(np.float32)
         new_image[:rows, :cols, :] = image.astype(np.float32)
 
-        return torch.from_numpy(new_image)
+        return torch.from_numpy(new_image).permute(2, 0, 1).unsqueeze(0), pad_h, pad_w
 
     def load_classes(self, path):
-        csv_reader = csv.reader(open(path, 'r', newline=''), delimiter=',')
         result = {}
-
+        csv_reader = csv.reader(open(path, 'r', newline=''), delimiter=',')
         for line, row in enumerate(csv_reader):
             line += 1
             class_name, class_id = row
@@ -102,53 +97,32 @@ class RetinaNet:
         img = image[:, :, ::-1]
 
         if len(img.shape) == 2:
-            img = skimage.color.gray2rgb(img)
+            # img = skimage.color.gray2rgb(img)
+            img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
 
-        return self.resizer(img.astype(np.float32) / 255.0).permute(2, 0, 1).unsqueeze(0)
+        return self.resizer(img.astype(np.float32) / 255.0)
 
     def detect(self, img):
-        import time
         result = []
-        # unnormalize = UnNormalizer()
+        ori_H, ori_W = img.shape[:2]
 
-        def draw_caption(image, box, caption):
-            b = np.array(box).astype(int)
-            cv2.putText(image, caption, (b[0], b[1] - 10), cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 0), 2)
-            cv2.putText(image, caption, (b[0], b[1] - 10), cv2.FONT_HERSHEY_PLAIN, 1, (255, 255, 255), 1)
-
-        t1 = time.time()
-        data = self.load_image(img)
-        t2 = time.time()
+        shaped, pad_h, pad_w = self.load_image(img)
+        H, W = shaped.shape[2:]
 
         with torch.no_grad():
-            scores, classification, transformed_anchors = self.retinanet(data.cuda().float())
-            print("--->", t2-t1, time.time()-t2)
+            scores, classification, transformed_anchors = self.retinanet(shaped.cuda().float())
             idxs = np.where(scores > 0.5)
-
-            img = np.array(255 * data[0, :, :, :]).copy()
-            img[img < 0] = 0
-            img[img > 255] = 255
-            img = np.transpose(img, (1, 2, 0))
-            img = img.astype(np.uint8)
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
             for j in range(idxs[0].shape[0]):
                 bbox = transformed_anchors[idxs[0][j], :]
-                x1 = int(bbox[0])
-                y1 = int(bbox[1])
-                x2 = int(bbox[2])
-                y2 = int(bbox[3])
-
-                label_name = self.classes[int(classification[idxs[0][j]])]
-                result += [float(scores[idxs[0][j]]), x1, y1, x2, y2, label_name]
-                print([float(scores[idxs[0][j]]), x1, y1, x2, y2, label_name])
-
-                draw_caption(img, (x1, y1, x2, y2), label_name)
-                cv2.rectangle(img, (x1, y1), (x2, y2), color=(0, 0, 255), thickness=2)
-
-            cv2.imshow('img', img)
-            cv2.waitKey(1)
-        return []
+                x1 = int(bbox[0]*ori_W/(W-pad_w))
+                y1 = int(bbox[1]*ori_H/(H-pad_h))
+                x2 = int(bbox[2]*ori_W/(W-pad_w))
+                y2 = int(bbox[3]*ori_H/(H-pad_h))
+                # label_name = self.classes[int(classification[idxs[0][j]])]
+                result.append([float(scores[idxs[0][j]])*100, x1, y1, x2, y2, int(classification[idxs[0][j]])+1])
+        print(result)
+        return result
 
 
 if __name__ == '__main__':

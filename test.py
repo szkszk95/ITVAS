@@ -1,4 +1,5 @@
 from UI.proc import *
+from interface.Detection_retina.retina_detector import RetinaNet
 
 
 def proc(video_path, lines, frame_gap=1, debug=False):
@@ -6,7 +7,7 @@ def proc(video_path, lines, frame_gap=1, debug=False):
     frame_num = -1
     results = np.zeros((6, len(lines), len(lines))).astype(np.uint16)       # count results
     cnt = np.zeros(len(lines)).astype(np.uint16)                            # number of vehicles crossing each line
-    retinanet = RetinaNet()
+    retinanet = RetinaNet("/home/szk/PycharmProjects/pytorch-retinanet/saved/resnet50_vehicle_39.pt")
 
     while True:
         ret, frame = cap.read()
@@ -40,7 +41,7 @@ def proc(video_path, lines, frame_gap=1, debug=False):
 
 if __name__ == '__main__':
     proc(
-        video_path="/data/00_share/04  绸都大道、舜湖西路（4天）/4.11/绸都大道、舜湖西路南侧_绸都大道、舜湖西路南侧_20180411074813.mp4",
+        video_path="/data/00_share/4天视频/01   227省道、东港路（4天）/4.11/227省道、东港路西北角_227省道、东港路西北角_20180411070000.mp4",
         lines=[[484, 385, 1606, 832], [282, 490, 1139, 851]],
         frame_gap=1
     )
